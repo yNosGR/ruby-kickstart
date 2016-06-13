@@ -1,0 +1,16 @@
+server ntp.spectrum-health.org
+
+driftfile /var/lib/ntp/ntp.drift
+
+logconfig =all
+logfile /var/log/ntpd
+
+# defaults: rate limiting, disallow remote changes / associations
+# cf. http://www.eecis.udel.edu/~mills/ntp/html/accopt.html#restrict
+restrict default kod nomodify nopeer
+restrict -6 default kod nomodify nopeer
+
+# localhost: no restrictions
+restrict 127.0.0.1
+restrict -6 ::1
+

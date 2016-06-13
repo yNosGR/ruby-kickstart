@@ -1,0 +1,15 @@
+#### START: command section partitioning options ####
+
+ignoredisk --only-use=sda
+
+zerombr
+bootloader --location=mbr
+
+part /boot --fstype xfs --onpart sda1
+part pv.01 --onpart sda2
+volgroup vg_root pv.01
+logvol swap --vgname=vg_root --size=16384  --name=swap
+logvol /    --vgname=vg_root --size=10240     --name=root --fstype=xfs
+
+
+####  END:  command section partitioning options ####

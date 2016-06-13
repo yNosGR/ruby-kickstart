@@ -1,0 +1,30 @@
+# kickstart.rb options
+# ====================
+#
+# Usage
+# -----
+#
+# http://..../kickstart.rb?hostname=foo.spectrum-health.org&novm&template=bar&fs=baz
+#
+# Options
+# -------
+#
+# hostname:  Hostname for the machine. Must already be present in internal DNS.
+#            If this is omitted, networking will default to DHCP.  If there
+#            is no . in the name, .spectrum-health.org will be appended.
+#
+# snapshot:  Yum snapshot number in the install path.
+#
+# novm:      If this is set (to anything), a handful of additional packages
+#            for physical servers will be installed.
+#
+# template:  Specifies which kickstart template to use; defaults to "default"
+#            (kickstart templates are in the ./ks subdirectory)
+#
+# fs:        Specifies which filesystem templates to use; defaults to "default"
+#            (filesystem templates come in pairs -- one for the command
+#            section, the other for %pre -- and are found in ./fs)
+#
+# distroyum: If this is set (to anything), the default distro yum settings
+#            should be left intact. If not, all repos in /etc/yum.repos.d
+#            will be removed, and all yum plugins disabled.

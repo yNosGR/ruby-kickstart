@@ -1,0 +1,136 @@
+##############################################################################
+
+<%= render('options.erb', '_options') %>
+
+############################# kickstart commands #############################
+
+install
+<%= install_method %><% install_params.each do |k,v| %> --<%= k %>=<%= v%><% end %>
+
+logging --level=info
+
+text
+keyboard us
+lang en_US.UTF-8
+timezone --utc America/Detroit
+
+rootpw bootstrap
+auth --useshadow  --passalgo=sha512
+
+<% if hostname.empty? %>
+network --bootproto=dhcp --device=eth0
+<% else %>
+network --bootproto=static --device=eth0 --gateway=<%= gateway %> --ip=<%= ip %> --nameserver=<%= nameserver %> --netmask=<%= netmask %> --onboot=on --hostname=<%= hostname %>
+<% end %>
+
+firewall --enabled --ssh
+selinux --enforcing
+
+skipx
+
+<%= render("fs/#{fs}-cmd.erb", '_fs_cmd') %>
+
+reboot
+
+
+############################# package selection ##############################
+
+%packages --nobase
+
+#### core/mandatory stuff we don't want ####
+
+# will let chef install this
+-cronie
+
+# exclude rhn stuff (even though it's not there anyway)
+-rhnsd
+-yum-rhn-plugin
+
+#### core/default stuff we don't want ####
+
+# will let chef install this also
+-postfix
+
+# exclude wireless/usb nic firmware
+-atmel-firmware
+-b43-openfwwf
+-ipw2100-firmware
+-ipw2200-firmware
+-iwl100-firmware
+-iwl1000-firmware
+-iwl3945-firmware
+-iwl4965-firmware
+-iwl5000-firmware
+-iwl5150-firmware
+-iwl6000-firmware
+-iwl6000g2a-firmware
+-iwl6050-firmware
+-libertas-usb8388-firmware
+-rt61pci-firmware
+-rt73usb-firmware
+-zd1211-firmware
+
+# other unnecessary firmware
+-ivtv-firmware
+-xorg-x11-drv-ati-firmware
+<% unless novm %>
+-aic94xx-firmware
+-bfa-firmware
+-ql2100-firmware
+-ql2200-firmware
+-ql23xx-firmware
+-ql2400-firmware
+-ql2500-firmware
+<% end %>
+
+# chef needs ntp
+ntp
+
+# will need to do nfs mount of local yum mirrors
+nfs-utils
+
+# so we can tell if this is a VM or not
+virt-what
+
+%end
+
+
+############################# pre-install script #############################
+
+%pre
+
+<%= render("fs/#{fs}-pre.erb", '_fs_pre') %>
+
+%end
+
+
+############################ post-install script #############################
+
+%post
+
+#### show all the gory details during boot ####
+
+sed -i 's/ rhgb\| quiet//g' /boot/grub/grub.conf
+
+#### configure ntp ####
+
+cat > /etc/ntp.conf <<EOF
+<%= render('ntp.conf.erb', '_ntp') %>
+EOF
+
+/sbin/chkconfig ntpd on
+
+<% unless distroyum %>
+#### disable stock yum stuff ####
+rm -f /etc/yum.repos.d/*
+rm -f /etc/pki/rpm-gpg/*
+sed -i 's/enabled=1/enabled=0/' /etc/yum/pluginconf.d/*.conf
+<% end %>
+
+#### strip out NM_CONTROLLED and DNS1 from the network configuration ####
+cp /etc/sysconfig/network-scripts/ifcfg-eth0 /etc/sysconfig/network-scripts/ifcfg-eth0.orig
+grep -v -F -e "NM_CONTROLLED" -e "DNS1" /etc/sysconfig/network-scripts/ifcfg-eth0.orig > /etc/sysconfig/network-scripts/ifcfg-eth0
+rm /etc/sysconfig/network-scripts/ifcfg-eth0.orig
+
+
+%end

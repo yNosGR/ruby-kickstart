@@ -1,0 +1,241 @@
+##############################################################################
+
+<%= render('options.erb', '_options') %>
+
+############################# kickstart commands #############################
+
+install
+nfs --opts=defaults,ro,nfsvers=3 --dir=/ifs/brstgis1cl1/tier3/UNIX/linux_depot//centos/7/os/x86_64/ --server=shsapps3nfs.Spectrum-Health.org
+logging --level=info
+
+network --bootproto=static --device=link --gateway=<%= gateway %> --ip=<%= ip %> --nameserver=<%= nameserver %> --netmask=<%= netmask %> --onboot=on --hostname=<%= hostname %>
+
+text
+keyboard us
+lang en_US.UTF-8
+timezone --utc America/Detroit
+
+rootpw bootstrap
+auth --useshadow  --passalgo=sha512
+
+
+firewall --enabled --ssh
+selinux --enforcing
+
+skipx
+
+<%= render("fs/#{fs}-cmd.erb", '_fs_cmd') %>
+
+reboot
+
+
+############################# package selection ##############################
+
+%packages --nobase
+
+#### core/mandatory stuff we don't want ####
+
+# will let ansible install this
+-cronie
+
+# exclude rhn stuff (even though it's not there anyway)
+-rhnsd
+-yum-rhn-plugin
+
+#### core/default stuff we don't want ####
+
+# exclude wireless/usb nic firmware
+-atmel-firmware
+-b43-openfwwf
+-ipw2100-firmware
+-ipw2200-firmware
+-iwl100-firmware
+-iwl1000-firmware
+-iwl3945-firmware
+-iwl4965-firmware
+-iwl5000-firmware
+-iwl5150-firmware
+-iwl6000-firmware
+-iwl6000g2a-firmware
+-iwl6000g2b-firmware
+-iwl6050-firmware
+-libertas-usb8388-firmware
+-rt61pci-firmware
+-rt73usb-firmware
+-zd1211-firmware
+-iwl7260-firmware
+-iwl2030-firmware
+-iwl105-firmware
+-iwl2000-firmware
+-iwl135-firmware
+-iwl3160-firmware
+
+#Death to NetworkManager
+-NetworkManager
+-NetworkManager-team
+-NetworkManager-tui
+
+# other unnecessary firmware
+-ivtv-firmware
+-xorg-x11-drv-ati-firmware
+<% unless novm %>
+-aic94xx-firmware
+-bfa-firmware
+-ql2100-firmware
+-ql2200-firmware
+-ql23xx-firmware
+-ql2400-firmware
+-ql2500-firmware
+<% end %>
+
+# we need ntp
+ntp
+
+#We want net-tools in case something goes wrong
+net-tools
+
+# will need to do nfs mount of local yum mirrors
+nfs-utils
+
+# so we can tell if this is a VM or not
+virt-what
+
+%end
+
+
+############################# pre-install script #############################
+
+%pre
+
+<%= render("fs/#{fs}-pre.erb", '_fs_pre') %>
+
+%end
+
+
+############################ post-install script #############################
+
+%post
+
+#### show all the gory details during boot ####
+
+sed -i 's/ rhgb\| quiet//g' /boot/grub2/grub.cfg
+
+#### install our internal CA certs ####
+
+cat > /etc/pki/tls/certs/spectrum-health.pem <<EOF
+-----BEGIN CERTIFICATE-----
+MIIFfjCCA2agAwIBAgIQW1w728TGn4hHUfuhe8vXdzANBgkqhkiG9w0BAQsFADBQ
+MR8wHQYDVQQKExZTcGVjdHJ1bSBIZWFsdGggU3lzdGVtMS0wKwYDVQQDEyRTcGVj
+dHJ1bSBIZWFsdGggRW50ZXJwcmlzZSBSb290IENBIDIwHhcNMTUxMDE0MTkxMjI2
+WhcNMzUxMDE0MTkyMjIzWjBQMR8wHQYDVQQKExZTcGVjdHJ1bSBIZWFsdGggU3lz
+dGVtMS0wKwYDVQQDEyRTcGVjdHJ1bSBIZWFsdGggRW50ZXJwcmlzZSBSb290IENB
+IDIwggIiMA0GCSqGSIb3DQEBAQUAA4ICDwAwggIKAoICAQC9fddrX0VuSq/tUstR
+W8JlsqvxtDqrIMuDCw+iZROls+HbL+VVGwRMwS/nAGHty1VcIKcCHQZjnfgBhcno
+37gh6ENX5jwht6Fg3Guzh+c3kOy7MEiQR2qB1OmUPeh7F/S4aayj2NGrNSaQcQPD
+o5TkoemdtqJ99DYDMK5LGdpSUk21Pmi2WyETcMPBeo66BI/SWv1WvClnZGiNC6zG
+E8Kgyw1jVRFRUOyQ73GugWuSvqUhe2YplvHOH5qcX1db1hexsaZ0bwJMo6gt85g6
+GkBQMsGA3bYJVCPyqlPUSpeXvo/C8RhfzmpqpEgrlidUjXPlayZcxl3Qwu14Y/nm
+tmH83QyQpjv5Bx7lNG6I+PgkxDVumole4RlGVtq7Xbdli9a5BIrd0xbjyd7sJtza
+SDkyh3/ade6sCy29uVoyRdVUH0wKeFfCJJ8kJ55GwlANa4ilU4h299e4UkZKxTyc
+CIWeMvDUtyBGjZpAbSthqwiIKXsMKkXEwsu0uOi3Vc7Z24uekEMfDIkQxUhZ1SRp
+lLMfZ/I+1Ticc5/AQckEXgPftyNJElEJnyLYy76NdlR5znCLWR67i1AsMJp3zDia
+76cDl8W0loOfyy8WX+huQ3MIiD9kvGsu4/zJbtFmxR2jGdmruhfZrX9NZQp+ndKD
+AH2TSz1dXLakO86P/FFhI89wdwIDAQABo1QwUjAOBgNVHQ8BAf8EBAMCAQYwDwYD
+VR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQU8rgWJvwGHciPyxBBAJ1xOigc/MIwEAYJ
+KwYBBAGCNxUBBAMCAQAwDQYJKoZIhvcNAQELBQADggIBAI7DO1dc+U21jaistpWE
+Ir5i8RZEySoAbrZ5DC9ouZj/nTWvc6WuSkLXPTeyKVcZ7E6WiwTrTwtMMXiacvWQ
+gWUan9OJqL8muSdAge8aedH7pbp8wJ1mKFgw2DH5EtUrxkFNMi03E6aBs6WekDk1
+vHBEIsdDiq+SxnXxELUHTY2adozfXU7CfXcYh5oknBwiY4GJhKCo3x5mVypvdHGw
+ad0nTKI6k7Rus7/LN969RzaPcLufi4RdDLI8Jm2jpoNtiZ5QIiQ7D2eYUzYzhd2H
+jzKJR/CdUdQlvYvN2no1BPGb95XAnGILw/WZ0N/JkKu9esJHvt/oWI/Zpax76TFP
+9NaW+x6EjZ0WrBDXK6Pa0kYe02bIcUnDm2JPolqKgJhh7pL7zZYvMzM27BT2cOck
+wo+5lGa5avX0OORP6w3sM+aRnXdukgHUd8Zh26ZYks0Xi950dzmqyTi4nLEJ8epz
+JIWomTcd5v/HXj1qf2Q+nXog/6u5OTzrzj+/FtHOCEgyXHSr3AW0QOfIMIKMnvWj
+ZL7vHsn/xTu+T/GvZr9wwFFzCiHR4ygAKGeT1KejG662J9bLP84euHN3g/XXdNha
+27RuHtu8ep7X6HS+3vpiP69Dt4guxJMSyVmYBf3JdPjWZ5Wlbxeb/17biBd2IatP
+1EyFWJKQUuyO0Q0U+v/2jw95
+-----END CERTIFICATE----
+EOF
+
+cat > /etc/pki/tls/certs/gi-spectrum-health.pem <<EOF
+-----BEGIN CERTIFICATE-----
+MIIKbjCCCFagAwIBAgITIwAAAAJ1U9C9ikevEgAAAAAAAjANBgkqhkiG9w0BAQsF
+ADBQMR8wHQYDVQQKExZTcGVjdHJ1bSBIZWFsdGggU3lzdGVtMS0wKwYDVQQDEyRT
+cGVjdHJ1bSBIZWFsdGggRW50ZXJwcmlzZSBSb290IENBIDIwHhcNMTUxMDE1MTkz
+NzUwWhcNMzAxMDE1MTk0NzUwWjBQMR8wHQYDVQQKExZTcGVjdHJ1bSBIZWFsdGgg
+U3lzdGVtMS0wKwYDVQQDEyRTcGVjdHJ1bSBIZWFsdGggR2VuZXJhbCBJc3N1aW5n
+IENBIDMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCtnd1N2CK2WOHf
+va2AiAZ8cQRiYe8orfiVoor3ZGhJaDoeQAPIrWOnVbo3hdXRMVpQN9FyylZfo9re
+cHHHpop6L0/Mob7oJJ1Bz7hX/ly43+WkBmz1D6RoZNoy+eHokdmUw4FdkXuM9E4y
+oe0vH0XTIooyPaZV4zA+NLhHBdKvsEl1DtBven6E6HTPOvGwhSIdWuKcVQkKVNxE
+iEs98ADKyTrk/7tX6ZNaXsrCqVvlR9SPIwu/Ekjd4NQO738+fNpdBJaFY09GGhhx
+iRe0aRmQLd/yK0AsqVNrHOT6wXGpjd3PAVrm5ibEgm1pAXk4N1/rbipqqJI1UxdV
+8zbjw3hxAgMBAAGjggY/MIIGOzALBgNVHQ8EBAMCAYYwEAYJKwYBBAGCNxUBBAMC
+AQAwHQYDVR0OBBYEFFa2EJ3hEj3RewGP0+9zMWN7NXGNMIIDBAYDVR0gBIIC+zCC
+AvcwggLzBgsrBgEEAYKBAgEBBTCCAuIwggKmBggrBgEFBQcCAjCCApgeggKUAFQA
+aABpAHMAIABDAGUAcgB0AGkAZgBpAGMAYQB0AGkAbwBuACAAQQB1AHQAaABvAHIA
+aQB0AHkAIAAoAEMAQQApACAAaQBzACAAYQAgAFMAcABlAGMAdAByAHUAbQAgAEgA
+ZQBhAGwAdABoACAAUwB5AHMAdABlAG0AIABpAG4AdABlAHIAbgBhAGwAIAByAGUA
+cwBvAHUAcgBjAGUALgAgAEMAZQByAHQAaQBmAGkAYwBhAHQAZQBzACAAaQBzAHMA
+dQBlAGQAIABiAHkAIAB0AGgAaQBzACAAQwBBACAAYQByAGUAIABmAG8AcgAgAGkA
+bgB0AGUAcgBuAGEAbAAgAFMAcABlAGMAdAByAHUAbQAgAEgAZQBhAGwAdABoACAA
+YQB1AHQAaABvAHIAaQB6AGUAZAAgAHUAcwBlACAAbwBuAGwAeQAuACAATgBvAG4A
+LQBTAHAAZQBjAHQAcgB1AG0AIABwAGEAcgB0AGkAZQBzACAAcwBoAGEAbABsACAA
+bgBvAHQAIAByAGUAbAB5ACAAbwBuACAAdABoAGkAcwAgAEMAQQAgAHUAbgBsAGUA
+cwBzACAAYQB1AHQAaABvAHIAaQB6AGUAZAAgAGIAeQAgAFMAcABlAGMAdAByAHUA
+bQAgAEgAZQBhAGwAdABoAC4AIABGAG8AcgAgAG0AbwByAGUAIABpAG4AZgBvAHIA
+bQBhAHQAaQBvAG4ALAAgAHAAbABlAGEAcwBlACAAcgBlAGYAZQByACAAdABvACAA
+aAB0AHQAcAA6AC8ALwBjAHIAbAAuAHMAcABlAGMAdAByAHUAbQAtAGgAZQBhAGwA
+dABoAC4AbwByAGcALwByAGUAYQBkAG0AZQAuAHQAeAB0MDYGCCsGAQUFBwIBFipo
+dHRwOi8vY3JsLnNwZWN0cnVtLWhlYWx0aC5vcmcvcmVhZG1lLnR4dAAwGQYJKwYB
+BAGCNxQCBAweCgBTAHUAYgBDAEEwEgYDVR0TAQH/BAgwBgEB/wIBADAfBgNVHSME
+GDAWgBTyuBYm/AYdyI/LEEEAnXE6KBz8wjCCAVQGA1UdHwSCAUswggFHMIIBQ6CC
+AT+gggE7hlFodHRwOi8vY3JsLnNwZWN0cnVtLWhlYWx0aC5vcmcvU3BlY3RydW0l
+MjBIZWFsdGglMjBFbnRlcnByaXNlJTIwUm9vdCUyMENBJTIwMi5jcmyGgeVsZGFw
+Oi8vL0NOPVNwZWN0cnVtJTIwSGVhbHRoJTIwRW50ZXJwcmlzZSUyMFJvb3QlMjBD
+QSUyMDIsQ049V0lOLUpVVjdEQ0xOMzJHLENOPUNEUCxDTj1QdWJsaWMlMjBLZXkl
+MjBTZXJ2aWNlcyxDTj1TZXJ2aWNlcyxDTj1Db25maWd1cmF0aW9uLERDPXNwZWN0
+cnVtLWhlYWx0aCxEQz1vcmc/Y2VydGlmaWNhdGVSZXZvY2F0aW9uTGlzdD9iYXNl
+P29iamVjdENsYXNzPWNSTERpc3RyaWJ1dGlvblBvaW50MIIBSQYIKwYBBQUHAQEE
+ggE7MIIBNzBdBggrBgEFBQcwAoZRaHR0cDovL2NybC5zcGVjdHJ1bS1oZWFsdGgu
+b3JnL1NwZWN0cnVtJTIwSGVhbHRoJTIwRW50ZXJwcmlzZSUyMFJvb3QlMjBDQSUy
+MDIuY3J0MIHVBggrBgEFBQcwAoaByGxkYXA6Ly8vQ049U3BlY3RydW0lMjBIZWFs
+dGglMjBFbnRlcnByaXNlJTIwUm9vdCUyMENBJTIwMixDTj1BSUEsQ049UHVibGlj
+JTIwS2V5JTIwU2VydmljZXMsQ049U2VydmljZXMsQ049Q29uZmlndXJhdGlvbixE
+Qz1zcGVjdHJ1bS1oZWFsdGgsREM9b3JnP2NBQ2VydGlmaWNhdGU/YmFzZT9vYmpl
+Y3RDbGFzcz1jZXJ0aWZpY2F0aW9uQXV0aG9yaXR5MA0GCSqGSIb3DQEBCwUAA4IC
+AQC2m2jUXfysT6l0iRpCofsVoSZwJ5i10z1Tp/j/Sf5pLAkG3h931vw355FtnG3C
+kgpLhXLWBaTk3k2Of3awbKPXmywhYcS2nvfnk7EMEYBJXz1yJ7nwnpSfuRKv0Mt6
+mY/bu5bvKw8ZZtUDGCczF4KdAz5FE2S3z9cjMZQdwP/TL9IhNUAhvypEGlY5lZ78
+Yklu5eukDSF4CBS69FSA7v95BzjYowH3xOxrAmK6IEQ7GmGnPT0KxB2IgA0hTfKZ
+9bHWnowpr6pU0x0EPISI4GNr0AsX2+A/kc44nLmUeHKmhlaC3mKDqvC6HPckTnBk
+t/bV/KPuFojsGMBIqOlPxK8OiLSF27TY3QvbyFUfZ8meqTAsGMzRCbR03LEIRePC
+ajG+J3X+dCSJyDgkhNttfmeddNdQ0fCVqraxNyWei7CXDF2sqON/CMhezrWDf9vR
+6sn07Lmc4P3qpHkS29wx0XItoZV270a5GxP25die7zWBogh8a2SkzvzJiC9z8GIa
+cEItBwf26+3D2oCTLUExecN8OiwC//44GMaIxhFYwR6szREM0jn2ERdMHYJ3Ns3H
+powf/DHt0DUDBmPEZJS33BIU0xdgw1EooR0llZPOda05CFF1WlW/QQEVwRZ3IBvw
+lM8FSxyRK6g6xEno7cQVYjxllHsed0PAuA98P7Hx23pfjA==
+-----END CERTIFICATE-----
+EOF
+
+ln -s  /etc/pki/tls/certs/gi-spectrum-health.pem /etc/pki/tls/certs/b0c144b0.0
+ln -s /etc/pki/tls/certs/spectrum-health.pem /etc/pki/tls/certs/df47a5b3.0
+
+cat /etc/pki/tls/certs/spectrum-health.pem >> /etc/ssl/certs/ca-bundle.crt
+cat /etc/pki/tls/certs/gi-spectrum-health.pem >> /etc/ssl/certs/ca-bundle.crt
+
+#### configure ntp ####
+
+cat > /etc/ntp.conf <<EOF
+<%= render('ntp.conf.erb', '_ntp') %>
+EOF
+
+/sbin/chkconfig ntpd on
+
+<% unless distroyum %>
+#### disable stock yum stuff ####
+rm -f /etc/yum.repos.d/*
+sed -i 's/enabled=1/enabled=0/' /etc/yum/pluginconf.d/*.conf
+<% end %>
+
+%end

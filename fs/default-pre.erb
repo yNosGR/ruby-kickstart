@@ -1,0 +1,10 @@
+#### START: %pre preinstall partitioning commands ####
+
+# create partitions manually to ensure alignment
+# c.f. https://communities.netapp.com/message/39917
+parted -s /dev/sda mklabel msdos
+parted -s /dev/sda mkpart primary 64s 417689s
+parted -s /dev/sda mkpart primary 417696s 100%
+parted -s /dev/sda set 2 lvm on
+
+####  END:  %pre preinstall partitioning commands ####
